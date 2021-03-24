@@ -1,20 +1,19 @@
 package eu.arrowhead.client.library.config;
 
-import java.io.IOException;
+
 import java.util.Enumeration;
+import java.util.NoSuchElementException;
+import java.io.IOException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
-import java.security.cert.X509Certificate;
-//import java.security.spec.InvalidKeySpecException;
 import java.security.cert.CertificateException;
-//import java.security.cert.X509Certificate;
+import java.security.cert.X509Certificate;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.ServiceConfigurationError;
 
