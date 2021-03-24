@@ -26,6 +26,16 @@ import org.springframework.web.socket.client.WebSocketConnectionManager;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.WebSocketHandler;
 
+//import javax.websocket.ContainerProvider;
+//import javax.websocket.WebSocketContainer;
+import org.apache.http.ssl.TrustStrategy;
+//import org.apache.http.ssl.SSLContextBuilder;
+import javax.net.ssl.SSLContext;
+import org.apache.http.ssl.SSLContexts;
+import java.security.cert.X509Certificate;
+import java.security.KeyStore;
+import java.io.FileInputStream;
+
 import eu.arrowhead.client.library.util.ClientCommonConstants;
 import eu.arrowhead.client.library.util.CoreServiceUri;
 import eu.arrowhead.common.CommonConstants;
@@ -458,7 +468,7 @@ public class ArrowheadService {
 	
 	//-------------------------------------------------------------------------------------------------
 	/**
-	 * Make  ws(s) connection with the specified service reachability details.
+	 * Make WS connection with the specified service reachability details.
 	 * 
 	 * @param responseType which represents the expected response body.
 	 * @param httpMethod HttpMethod enum which represents the method how the service is available.
@@ -509,15 +519,120 @@ public class ArrowheadService {
 		}
 
 		System.out.println("URI: " + uri.toString());
+		WebSocketConnectionManager manager = new WebSocketConnectionManager(new StandardWebSocketClient(), handler, uri.toString() );
 
-		WebSocketConnectionManager manager = new WebSocketConnectionManager(new StandardWebSocketClient(), handler, //Must be defined to handle messages
-							uri.toString() + "/ws/mulle243/temperature");
-        
-        //Will connect as soon as possible
-        //manager.setAutoStartup(true);
+        manager.setAutoStartup(true);
 		return manager;
 	}
+/*
+		try {
+			KeyStore trustStore = KeyStore.getInstance("PKCS12");
+			trustStore.load(new FileInputStream("./truststore.p12"), "123456".toCharArray());
+
+			KeyStore keyStore = KeyStore.getInstance("PKCS12");
+			keyStore.load(new FileInputStream("/home/jench/work/Eistec/core-java-spring/certificates/testcloud2/service_registry.p12"), "123456".toCharArray());
+
+			System.out.println("Certificate loaded!!");
+			final TrustStrategy acceptingTrustStrategy = (X509Certificate[] chain, String authType) -> true;
+			final SSLContext sslContext = SSLContexts.custom().loadTrustMaterial(trustStore, acceptingTrustStrategy).loadKeyMaterial(keyStore, "123456".toCharArray()).build();
+			
+			final StandardWebSocketClient wsClient = new StandardWebSocketClient();
+			final WebSocketContainer container = ContainerProvider.getWebSocketContainer();
 	
+			wsClient.getUserProperties().clear();
+			wsClient.getUserProperties().put("org.apache.tomcat.websocket.SSL_CONTEXT", sslContext);
+			
+			final WebSocketConnectionManager manager = new WebSocketConnectionManager(wsClient, handler, wsUri);
+
+			return manager;
+		} catch(Exception e) {
+			System.out.println("WS connection failed: " + e);
+			return null;
+		}
+	}
+*/
+	//-------------------------------------------------------------------------------------------------
+	/**
+	 * Make WSS connection with the specified service reachability details.
+	 * 
+	 * @param responseType which represents the expected response body.
+	 * @param httpMethod HttpMethod enum which represents the method how the service is available.
+	 * @param address String value which represents the host where the service is available.
+	 * @param port int value which represents the port where the service is available
+	 * @param serviceUri String value which represents the URI where the service is available.
+	 * @param interfaceName String value which represents the name of the interface used for the communication. Usable interfaces could be received in orchestration response.
+	 * @param token (nullable) String value which represents the token for being authorized at the provider side if necessary. Token could be received in orchestration response per interface type.  
+	 * @param payload (nullable) Object type which represents the required payload of the http(s) request if any necessary.
+	 * @param queryParams (nullable) String... variable arguments which represent the additional key-value http(s) query parameters if any necessary. E.g.: "k1", "v1", "k2", "v2".  
+	 * @return the response received from the provider 
+	 * 
+	 * @throws InvalidParameterException when service URL can't be assembled.
+	 * @throws AuthException when ssl context or access control related issue happened.
+	 * @throws ArrowheadException when the communication is managed via Gateway Core System and internal server error happened.
+	 * @throws UnavailableServerException when the specified server is not available.
+	 */
+	public WebSocketConnectionManager connnectServiceWSS(final KeyStore trustStore, final KeyStore keyStore, final String password, final WebSocketHandler handler, final String address, final int port, final String serviceUri, final String interfaceName, 
+			final String token, final String... queryParams) {
+		System.out.println("Connecting...");
+
+		if (Utilities.isEmpty(address)) {
+			throw new InvalidParameterException("address cannot be null or blank.");
+		}
+		if (Utilities.isEmpty(serviceUri)) {
+			throw new InvalidParameterException("serviceUri cannot be null or blank.");
+		}
+		if (Utilities.isEmpty(interfaceName)) {
+			throw new InvalidParameterException("interfaceName cannot be null or blank.");
+		}
+
+		String[] validatedQueryParams;
+		if (queryParams == null) {
+			validatedQueryParams = new String[0];
+		} else {
+			validatedQueryParams = queryParams;
+		}
+		
+		UriComponents uri;
+		if(!Utilities.isEmpty(token)) {
+			final List<String> query = new ArrayList<>();
+			query.addAll(Arrays.asList(validatedQueryParams));
+			query.add(CommonConstants.REQUEST_PARAM_TOKEN);
+			query.add(token);
+			uri = Utilities.createURI(getUriSchemeFromInterfaceName(interfaceName), address, port, serviceUri, query.toArray(new String[query.size()]));
+		} else {
+			uri = Utilities.createURI(getUriSchemeFromInterfaceName(interfaceName), address, port, serviceUri, validatedQueryParams);
+		}
+
+		System.out.println("URI: " + uri.toString());
+		String wsUri = "wss://127.0.0.1:8461/ws/datamanager/historian/service_registry.testcloud2.aitia.arrowhead.eu/temperature";
+
+//		WebSocketConnectionManager manager = new WebSocketConnectionManager(new StandardWebSocketClient(), handler, //Must be defined to handle messages
+//							uri.toString() );
+
+        //Will connect as soon as possible
+        //manager.setAutoStartup(true);
+		//return manager;
+
+		try {
+			final TrustStrategy acceptingTrustStrategy = (X509Certificate[] chain, String authType) -> true;
+			final SSLContext sslContext = SSLContexts.custom().loadTrustMaterial(trustStore, acceptingTrustStrategy).loadKeyMaterial(keyStore, password.toCharArray()).build();
+			
+			final StandardWebSocketClient wsClient = new StandardWebSocketClient();
+			//final WebSocketContainer container = ContainerProvider.getWebSocketContainer();
+	
+			wsClient.getUserProperties().clear();
+			wsClient.getUserProperties().put("org.apache.tomcat.websocket.SSL_CONTEXT", sslContext);
+			
+			final WebSocketConnectionManager manager = new WebSocketConnectionManager(wsClient, handler, wsUri);
+
+			manager.setAutoStartup(true);
+			return manager;
+		} catch(Exception e) {
+			System.out.println("WSS connection failed: " + e);
+			return null;
+		}
+	}
+
 	//-------------------------------------------------------------------------------------------------
 	/**
 	 * Sends a http(s) 'subscription' request to Event Handler Core System.
@@ -617,23 +732,40 @@ public class ArrowheadService {
 	private String getUriScheme() {
 		return sslProperties.isSslEnabled() ? CommonConstants.HTTPS : CommonConstants.HTTP;
 	}
+
+	//-------------------------------------------------------------------------------------------------
+	private String getUriSchemeWS() {
+		//return sslProperties.isSslEnabled() ? CommonConstants.WSS : CommonConstants.WS;
+		return sslProperties.isSslEnabled() ? "wss" : "ws";
+	}
 	
 	//-------------------------------------------------------------------------------------------------
 	private String getUriSchemeFromInterfaceName(final String interfaceName) {
 		final String[] splitInterf = interfaceName.split("-");
 		final String protocolStr = splitInterf[0];
-		if (!protocolStr.equalsIgnoreCase(CommonConstants.HTTP) && !protocolStr.equalsIgnoreCase(CommonConstants.HTTPS)) {
+		if (!protocolStr.equalsIgnoreCase(CommonConstants.HTTP) && !protocolStr.equalsIgnoreCase(CommonConstants.HTTPS) && 
+			!protocolStr.equalsIgnoreCase("ws") && !protocolStr.equalsIgnoreCase("wss")) {
 			// Currently only HTTP(S) is supported
-			throw new InvalidParameterException("Invalid interfaceName: protocol should be 'http' or 'https'.");
+			throw new InvalidParameterException("Invalid interfaceName: protocol should be 'http', 'https', 'ws' or 'wss'.");
 		}
 		
-		final boolean isSecure = INTERFACE_SECURE_FLAG.equalsIgnoreCase(splitInterf[1]);
-		final boolean isInsecure = INTERFACE_INSECURE_FLAG.equalsIgnoreCase(splitInterf[1]);
-		if (!isSecure && !isInsecure) {
-			return getUriScheme();
+		if (protocolStr.equalsIgnoreCase(CommonConstants.HTTP) || protocolStr.equalsIgnoreCase(CommonConstants.HTTPS)) {
+			final boolean isSecure = INTERFACE_SECURE_FLAG.equalsIgnoreCase(splitInterf[1]);
+			final boolean isInsecure = INTERFACE_INSECURE_FLAG.equalsIgnoreCase(splitInterf[1]);
+			if (!isSecure && !isInsecure) {
+					return getUriScheme();
+			}
+			return isSecure ? CommonConstants.HTTPS : CommonConstants.HTTP;
+		} else {
+			final boolean isSecure = INTERFACE_SECURE_FLAG.equalsIgnoreCase(splitInterf[1]);
+			final boolean isInsecure = INTERFACE_INSECURE_FLAG.equalsIgnoreCase(splitInterf[1]);
+			if (!isSecure && !isInsecure) {
+					return getUriSchemeWS();
+			}
+			//return isSecure ? CommonConstants.WSS : CommonConstants.WS;
+			return isSecure ? "wss" : "ws";
 		}
 		
-		return isSecure ? CommonConstants.HTTPS : CommonConstants.HTTP;
 	}
 	
 	//-------------------------------------------------------------------------------------------------

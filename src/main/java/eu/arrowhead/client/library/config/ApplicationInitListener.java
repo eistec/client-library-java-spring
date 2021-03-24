@@ -1,14 +1,22 @@
 package eu.arrowhead.client.library.config;
 
 import java.io.IOException;
+import java.util.Enumeration;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
-import java.security.cert.CertificateException;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
+//import java.security.spec.InvalidKeySpecException;
+import java.security.cert.CertificateException;
+//import java.security.cert.X509Certificate;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.NoSuchElementException;
+import java.util.Objects;
+import java.util.ServiceConfigurationError;
 
 import javax.annotation.PreDestroy;
 
@@ -116,7 +124,7 @@ public abstract class ApplicationInitListener {
 	//-------------------------------------------------------------------------------------------------
 	private void checkServerCertificate(final KeyStore keyStore, final ApplicationContext appContext) {
 		logger.debug("checkServerCertificate started...");
-		final X509Certificate serverCertificate = Utilities.getSystemCertFromKeyStore(keyStore);
+		final X509Certificate serverCertificate = getSystemCertFromKeyStore(keyStore);
 		final String serverCN = Utilities.getCertCNFromSubject(serverCertificate.getSubjectDN().getName());
 		if (!Utilities.isKeyStoreCNArrowheadValid(serverCN)) {
 			logger.info("Client CN ({}) is not compliant with the Arrowhead certificate structure, since it does not have 5 parts, or does not end with \"arrowhead.eu\".", serverCN);
@@ -128,6 +136,27 @@ public abstract class ApplicationInitListener {
 		final Map<String,Object> context = appContext.getBean(CommonConstants.ARROWHEAD_CONTEXT, Map.class);
 		context.put(CommonConstants.SERVER_COMMON_NAME, serverCN);
 	}
+
+	//-------------------------------------------------------------------------------------------------
+	public X509Certificate getSystemCertFromKeyStore(final KeyStore keystore) {
+		Assert.notNull(keystore, "Key store is not defined.");
+
+        try {
+            // the first certificate is not always the end certificate. java does not guarantee the order
+			final Enumeration<String> enumeration = keystore.aliases();
+            while (enumeration.hasMoreElements()) {
+                final Certificate[] chain = keystore.getCertificateChain(enumeration.nextElement());
+
+                if(Objects.nonNull(chain) && chain.length >= 3) {
+                    return (X509Certificate) chain[0];
+                }
+            }
+            throw new ServiceConfigurationError("Getting the first cert from keystore failed...");
+        } catch (final KeyStoreException | NoSuchElementException ex) {
+        	logger.error("Getting the first cert from key store failed...", ex);
+            throw new ServiceConfigurationError("Getting the first cert from keystore failed...", ex);
+        }
+    }
 	
 	//-------------------------------------------------------------------------------------------------
 	private void obtainKeys(final KeyStore keyStore, final ApplicationContext appContext) {
@@ -135,9 +164,38 @@ public abstract class ApplicationInitListener {
 		@SuppressWarnings("unchecked")
 		final Map<String,Object> context = appContext.getBean(CommonConstants.ARROWHEAD_CONTEXT, Map.class);
 		
-		context.put(CommonConstants.SERVER_PUBLIC_KEY, Utilities.getSystemCertFromKeyStore(keyStore).getPublicKey());
+		context.put(CommonConstants.SERVER_PUBLIC_KEY, getSystemCertFromKeyStore(keyStore).getPublicKey());
 		
-		final PrivateKey privateKey = Utilities.getPrivateKey(keyStore, sslProperties.getKeyPassword());
+		final PrivateKey privateKey = getPrivateKey(keyStore, sslProperties.getKeyPassword());
 		context.put(CommonConstants.SERVER_PRIVATE_KEY, privateKey);
 	}
+
+	//-------------------------------------------------------------------------------------------------
+    public PrivateKey getPrivateKey(final KeyStore keystore, final String keyPass) {
+        Assert.notNull(keystore, "Key store is not defined.");
+        Assert.notNull(keyPass, "Password is not defined.");
+
+        PrivateKey privateKey = null;
+        String element;
+        try {
+            final Enumeration<String> enumeration = keystore.aliases();
+            while (enumeration.hasMoreElements()) {
+                element = enumeration.nextElement();
+
+                privateKey = (PrivateKey) keystore.getKey(element, keyPass.toCharArray());
+                if (privateKey != null) {
+                    break;
+                }
+            }
+        } catch (final KeyStoreException | UnrecoverableKeyException | NoSuchAlgorithmException ex) {
+            logger.error("Getting the private key from key store failed...", ex);
+            throw new ServiceConfigurationError("Getting the private key from key store failed...", ex);
+        }
+
+        if (privateKey == null) {
+            throw new ServiceConfigurationError("Getting the private key failed, key store aliases do not identify a key.");
+        }
+
+        return privateKey;
+    }
 }
