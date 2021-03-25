@@ -515,8 +515,6 @@ public class ArrowheadService {
 		}
 
 		WebSocketConnectionManager manager = new WebSocketConnectionManager(new StandardWebSocketClient(), handler, uri.toString() );
-
-        manager.setAutoStartup(true);
 		return manager;
 	}
 
