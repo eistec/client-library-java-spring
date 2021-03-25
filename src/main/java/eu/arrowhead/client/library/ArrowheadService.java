@@ -26,15 +26,11 @@ import org.springframework.web.socket.client.WebSocketConnectionManager;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.WebSocketHandler;
 
-//import javax.websocket.ContainerProvider;
-//import javax.websocket.WebSocketContainer;
 import org.apache.http.ssl.TrustStrategy;
-//import org.apache.http.ssl.SSLContextBuilder;
 import javax.net.ssl.SSLContext;
 import org.apache.http.ssl.SSLContexts;
 import java.security.cert.X509Certificate;
 import java.security.KeyStore;
-//import java.io.FileInputStream;
 
 import eu.arrowhead.client.library.util.ClientCommonConstants;
 import eu.arrowhead.client.library.util.CoreServiceUri;
