@@ -34,7 +34,7 @@ import javax.net.ssl.SSLContext;
 import org.apache.http.ssl.SSLContexts;
 import java.security.cert.X509Certificate;
 import java.security.KeyStore;
-import java.io.FileInputStream;
+//import java.io.FileInputStream;
 
 import eu.arrowhead.client.library.util.ClientCommonConstants;
 import eu.arrowhead.client.library.util.CoreServiceUri;
@@ -518,39 +518,13 @@ public class ArrowheadService {
 			uri = Utilities.createURI(getUriSchemeFromInterfaceName(interfaceName), address, port, serviceUri, validatedQueryParams);
 		}
 
-		System.out.println("URI: " + uri.toString());
 		WebSocketConnectionManager manager = new WebSocketConnectionManager(new StandardWebSocketClient(), handler, uri.toString() );
 
         manager.setAutoStartup(true);
 		return manager;
 	}
-/*
-		try {
-			KeyStore trustStore = KeyStore.getInstance("PKCS12");
-			trustStore.load(new FileInputStream("./truststore.p12"), "123456".toCharArray());
 
-			KeyStore keyStore = KeyStore.getInstance("PKCS12");
-			keyStore.load(new FileInputStream("/home/jench/work/Eistec/core-java-spring/certificates/testcloud2/service_registry.p12"), "123456".toCharArray());
 
-			System.out.println("Certificate loaded!!");
-			final TrustStrategy acceptingTrustStrategy = (X509Certificate[] chain, String authType) -> true;
-			final SSLContext sslContext = SSLContexts.custom().loadTrustMaterial(trustStore, acceptingTrustStrategy).loadKeyMaterial(keyStore, "123456".toCharArray()).build();
-			
-			final StandardWebSocketClient wsClient = new StandardWebSocketClient();
-			final WebSocketContainer container = ContainerProvider.getWebSocketContainer();
-	
-			wsClient.getUserProperties().clear();
-			wsClient.getUserProperties().put("org.apache.tomcat.websocket.SSL_CONTEXT", sslContext);
-			
-			final WebSocketConnectionManager manager = new WebSocketConnectionManager(wsClient, handler, wsUri);
-
-			return manager;
-		} catch(Exception e) {
-			System.out.println("WS connection failed: " + e);
-			return null;
-		}
-	}
-*/
 	//-------------------------------------------------------------------------------------------------
 	/**
 	 * Make WSS connection with the specified service reachability details.
@@ -573,7 +547,6 @@ public class ArrowheadService {
 	 */
 	public WebSocketConnectionManager connnectServiceWSS(final KeyStore trustStore, final KeyStore keyStore, final String password, final WebSocketHandler handler, final String address, final int port, final String serviceUri, final String interfaceName, 
 			final String token, final String... queryParams) {
-		System.out.println("Connecting...");
 
 		if (Utilities.isEmpty(address)) {
 			throw new InvalidParameterException("address cannot be null or blank.");
@@ -585,6 +558,7 @@ public class ArrowheadService {
 			throw new InvalidParameterException("interfaceName cannot be null or blank.");
 		}
 
+		/* Handle query parameters */
 		String[] validatedQueryParams;
 		if (queryParams == null) {
 			validatedQueryParams = new String[0];
@@ -592,6 +566,7 @@ public class ArrowheadService {
 			validatedQueryParams = queryParams;
 		}
 		
+		/* prepare the URI */
 		UriComponents uri;
 		if(!Utilities.isEmpty(token)) {
 			final List<String> query = new ArrayList<>();
@@ -603,32 +578,20 @@ public class ArrowheadService {
 			uri = Utilities.createURI(getUriSchemeFromInterfaceName(interfaceName), address, port, serviceUri, validatedQueryParams);
 		}
 
-		System.out.println("URI: " + uri.toString());
-		String wsUri = "wss://127.0.0.1:8461/ws/datamanager/historian/service_registry.testcloud2.aitia.arrowhead.eu/temperature";
-
-//		WebSocketConnectionManager manager = new WebSocketConnectionManager(new StandardWebSocketClient(), handler, //Must be defined to handle messages
-//							uri.toString() );
-
-        //Will connect as soon as possible
-        //manager.setAutoStartup(true);
-		//return manager;
-
+		/* try to establish WSS connection */
 		try {
 			final TrustStrategy acceptingTrustStrategy = (X509Certificate[] chain, String authType) -> true;
 			final SSLContext sslContext = SSLContexts.custom().loadTrustMaterial(trustStore, acceptingTrustStrategy).loadKeyMaterial(keyStore, password.toCharArray()).build();
 			
 			final StandardWebSocketClient wsClient = new StandardWebSocketClient();
-			//final WebSocketContainer container = ContainerProvider.getWebSocketContainer();
-	
 			wsClient.getUserProperties().clear();
 			wsClient.getUserProperties().put("org.apache.tomcat.websocket.SSL_CONTEXT", sslContext);
 			
-			final WebSocketConnectionManager manager = new WebSocketConnectionManager(wsClient, handler, wsUri);
-
-			manager.setAutoStartup(true);
+			final WebSocketConnectionManager manager = new WebSocketConnectionManager(wsClient, handler, uri.toString());
+			
 			return manager;
 		} catch(Exception e) {
-			System.out.println("WSS connection failed: " + e);
+			logger.debug("WSS connection failed: " + e);
 			return null;
 		}
 	}
@@ -745,7 +708,7 @@ public class ArrowheadService {
 		final String protocolStr = splitInterf[0];
 		if (!protocolStr.equalsIgnoreCase(CommonConstants.HTTP) && !protocolStr.equalsIgnoreCase(CommonConstants.HTTPS) && 
 			!protocolStr.equalsIgnoreCase("ws") && !protocolStr.equalsIgnoreCase("wss")) {
-			// Currently only HTTP(S) is supported
+			// Currently only HTTP(S) and WS(S) are supported
 			throw new InvalidParameterException("Invalid interfaceName: protocol should be 'http', 'https', 'ws' or 'wss'.");
 		}
 		
@@ -753,14 +716,14 @@ public class ArrowheadService {
 			final boolean isSecure = INTERFACE_SECURE_FLAG.equalsIgnoreCase(splitInterf[1]);
 			final boolean isInsecure = INTERFACE_INSECURE_FLAG.equalsIgnoreCase(splitInterf[1]);
 			if (!isSecure && !isInsecure) {
-					return getUriScheme();
+				return getUriScheme();
 			}
 			return isSecure ? CommonConstants.HTTPS : CommonConstants.HTTP;
 		} else {
 			final boolean isSecure = INTERFACE_SECURE_FLAG.equalsIgnoreCase(splitInterf[1]);
 			final boolean isInsecure = INTERFACE_INSECURE_FLAG.equalsIgnoreCase(splitInterf[1]);
 			if (!isSecure && !isInsecure) {
-					return getUriSchemeWS();
+				return getUriSchemeWS();
 			}
 			//return isSecure ? CommonConstants.WSS : CommonConstants.WS;
 			return isSecure ? "wss" : "ws";
